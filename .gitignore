@@ -1,0 +1,37 @@
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/nbdist/
+/.nb-gradle/
+
+# Build output
+/build/
+/dist/
+
+# VS Code
+/.vscode/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Java compiled classes
+*.class
+
+# Tomcat
+/catalina.out
+
+# Environment files
+.env
+.env.local
+
+# IntelliJ
+.idea/
+*.iml
