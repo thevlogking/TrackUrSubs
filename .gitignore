@@ -35,3 +35,7 @@ Thumbs.db
 # IntelliJ
 .idea/
 *.iml
+
+#Dist
+dist/*
+!dist/TrackUrSubs.war
