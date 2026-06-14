@@ -137,7 +137,7 @@ boolean hasSubs =
 
 <head>
 
-<title>User Dashboard</title>
+<%@ include file="../components/site_tab.jsp" %>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 

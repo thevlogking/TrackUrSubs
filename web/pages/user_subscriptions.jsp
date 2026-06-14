@@ -69,7 +69,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Subscriptions</title>
+    <%@ include file="../components/site_tab.jsp" %>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="../css/user_dashboard.css" />
     <link rel="stylesheet" href="../css/add_subscription.css" />
