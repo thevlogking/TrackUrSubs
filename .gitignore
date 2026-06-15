@@ -12,8 +12,6 @@
 /build/
 /dist/*
 
-# Keep generated WAR
-!/dist/TrackUrSubs.war
 
 # =========================
 # VS Code
