@@ -1,41 +1,87 @@
+# =========================
 # NetBeans
+# =========================
 /nbproject/private/
 /nbbuild/
 /nbdist/
 /.nb-gradle/
 
-# Build output
+# =========================
+# Build Output
+# =========================
 /build/
+/dist/*
 
+# Keep generated WAR
+!/dist/TrackUrSubs.war
 
+# =========================
 # VS Code
-/.vscode/
+# =========================
+.vscode/
 
-# Logs
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Temporary files
-*.tmp
-*.temp
-
-# Java compiled classes
-*.class
-
-# Tomcat
-/catalina.out
-
-# Environment files
-.env
-.env.local
-
-# IntelliJ
+# =========================
+# IntelliJ IDEA
+# =========================
 .idea/
 *.iml
 
-#Dist
-dist/*
-!dist/TrackUrSubs.war
+# =========================
+# Tomcat
+# =========================
+apache-tomcat*/
+catalina.out
+logs/
+temp/
+work/
+
+# =========================
+# Environment Files
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Database
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+
+# MySQL data directories
+data/
+mysql/
+
+# SQL dumps (optional)
+*.sql
+
+# =========================
+# Java
+# =========================
+*.class
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Temporary Files
+# =========================
+*.tmp
+*.temp
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Archives
+# =========================
+*.zip
+*.rar
+*.tar
+*.7z
