@@ -11,6 +11,126 @@ import java.util.List;
 
 public class SubscriptionDAO {
 
+    public boolean archiveExpiredSubscriptions(long userId) {
+
+        return archiveExpiredSubscriptions(Long.valueOf(userId));
+    }
+
+    private boolean archiveExpiredSubscriptions(Long userId) {
+
+        String userFilter =
+                userId == null ? "" : "AND user_id=? ";
+
+        String archiveSql =
+                "INSERT INTO expired_user_subscription " +
+                "(subscription_id, user_id, subscription_name, " +
+                "plan_name, amount, billing_cycle, next_renewal_date, " +
+                "status, created_at, updated_at, last_login, " +
+                "last_used_date, expired_at) " +
+                "SELECT subscription_id, user_id, subscription_name, " +
+                "plan_name, amount, billing_cycle, next_renewal_date, " +
+                "'Expired', created_at, updated_at, last_login, " +
+                "last_used_date, CURRENT_TIMESTAMP " +
+                "FROM user_subscriptions " +
+                "WHERE next_renewal_date<CURDATE() " +
+                "AND status='Active' " +
+                userFilter +
+                "ON DUPLICATE KEY UPDATE " +
+                "user_id=VALUES(user_id), " +
+                "subscription_name=VALUES(subscription_name), " +
+                "plan_name=VALUES(plan_name), " +
+                "amount=VALUES(amount), " +
+                "billing_cycle=VALUES(billing_cycle), " +
+                "next_renewal_date=VALUES(next_renewal_date), " +
+                "status='Expired', " +
+                "created_at=VALUES(created_at), " +
+                "updated_at=VALUES(updated_at), " +
+                "last_login=VALUES(last_login), " +
+                "last_used_date=VALUES(last_used_date), " +
+                "expired_at=CURRENT_TIMESTAMP";
+
+        String notificationSql =
+                "DELETE FROM renewal_notifications " +
+                "WHERE subscription_id IN (" +
+                "SELECT subscription_id FROM user_subscriptions " +
+                "WHERE next_renewal_date<CURDATE() " +
+                "AND status='Active' " +
+                userFilter +
+                ")";
+
+        String statusSql =
+                "UPDATE user_subscriptions " +
+                "SET status='Expired', " +
+                "updated_at=CURRENT_TIMESTAMP " +
+                "WHERE next_renewal_date<CURDATE() " +
+                "AND status='Active' " +
+                userFilter;
+
+        Connection conn = null;
+
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement archivePs =
+                    conn.prepareStatement(archiveSql)) {
+
+                if (userId != null) {
+                    archivePs.setLong(1, userId);
+                }
+
+                archivePs.executeUpdate();
+            }
+
+            try (PreparedStatement notificationPs =
+                    conn.prepareStatement(notificationSql)) {
+
+                if (userId != null) {
+                    notificationPs.setLong(1, userId);
+                }
+
+                notificationPs.executeUpdate();
+            }
+
+            try (PreparedStatement statusPs =
+                    conn.prepareStatement(statusSql)) {
+
+                if (userId != null) {
+                    statusPs.setLong(1, userId);
+                }
+
+                statusPs.executeUpdate();
+            }
+
+            conn.commit();
+            return true;
+
+        } catch (Exception e) {
+
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (Exception rollbackError) {
+                    rollbackError.printStackTrace();
+                }
+            }
+
+            e.printStackTrace();
+            return false;
+
+        } finally {
+
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (Exception closeError) {
+                    closeError.printStackTrace();
+                }
+            }
+        }
+    }
+
     /* =========================
        ADD SUBSCRIPTION
        ========================= */
@@ -142,11 +262,17 @@ public class SubscriptionDAO {
         List<Subscription> list =
         new ArrayList<>();
 
+        if (!archiveExpiredSubscriptions(userId)) {
+            return list;
+        }
+
         String sql =
 
         "SELECT * FROM user_subscriptions " +
 
         "WHERE user_id=? " +
+
+        "AND status='Active' " +
 
         "ORDER BY next_renewal_date ASC";
 
@@ -159,24 +285,6 @@ public class SubscriptionDAO {
             conn.prepareStatement(sql)
 
         ){
-
-            String statusSql =
-            "UPDATE user_subscriptions " +
-            "SET status=CASE " +
-            "WHEN next_renewal_date<CURDATE() " +
-            "THEN 'Expired' ELSE 'Active' END " +
-            "WHERE user_id=? " +
-            "AND next_renewal_date IS NOT NULL " +
-            "AND (status IS NULL OR status<>CASE " +
-            "WHEN next_renewal_date<CURDATE() " +
-            "THEN 'Expired' ELSE 'Active' END)";
-
-            try(PreparedStatement statusPs =
-                    conn.prepareStatement(statusSql)){
-
-                statusPs.setLong(1,userId);
-                statusPs.executeUpdate();
-            }
 
             ps.setLong(1,
                     userId);
@@ -236,6 +344,87 @@ public class SubscriptionDAO {
         return list;
     }
 
+    public List<Subscription>
+    getExpiredSubscriptionsByUserId(
+            long userId){
+
+        List<Subscription> list =
+        new ArrayList<>();
+
+        if (!archiveExpiredSubscriptions(userId)) {
+            return list;
+        }
+
+        String sql =
+        "SELECT * FROM expired_user_subscription " +
+        "WHERE user_id=? " +
+        "ORDER BY next_renewal_date DESC";
+
+        try(
+
+            Connection conn =
+            DBConnection.getConnection();
+
+            PreparedStatement ps =
+            conn.prepareStatement(sql)
+
+        ){
+
+            ps.setLong(1,userId);
+
+            ResultSet rs =
+            ps.executeQuery();
+
+            while(rs.next()){
+
+                Subscription sub =
+                new Subscription();
+
+                sub.setSubscriptionId(
+                rs.getInt(
+                "subscription_id"));
+
+                sub.setUserId(
+                rs.getLong(
+                "user_id"));
+
+                sub.setSubscriptionName(
+                rs.getString(
+                "subscription_name"));
+
+                sub.setPlanName(
+                rs.getString(
+                "plan_name"));
+
+                sub.setAmount(
+                rs.getDouble(
+                "amount"));
+
+                sub.setBillingCycle(
+                rs.getString(
+                "billing_cycle"));
+
+                sub.setRenewalDate(
+                rs.getDate(
+                "next_renewal_date"));
+
+                sub.setLastUsedDate(
+                rs.getDate(
+                "last_used_date"));
+
+                sub.setStatus("Expired");
+
+                list.add(sub);
+            }
+
+        }catch(Exception e){
+
+            e.printStackTrace();
+        }
+
+        return list;
+    }
+
     /* =========================
        UPCOMING RENEWALS
        ========================= */
@@ -252,6 +441,8 @@ public class SubscriptionDAO {
         "SELECT * FROM user_subscriptions " +
 
         "WHERE user_id=? " +
+
+        "AND status='Active' " +
 
         "AND next_renewal_date " +
 
@@ -329,7 +520,9 @@ public class SubscriptionDAO {
 
         "FROM user_subscriptions " +
 
-        "WHERE user_id=?";
+        "WHERE user_id=? " +
+
+        "AND status='Active'";
 
         try(
 
@@ -392,7 +585,9 @@ public class SubscriptionDAO {
 
         "FROM user_subscriptions " +
 
-        "WHERE user_id=?";
+        "WHERE user_id=? " +
+
+        "AND status='Active'";
 
         try(
 
@@ -455,6 +650,8 @@ public class SubscriptionDAO {
         "FROM user_subscriptions " +
 
         "WHERE user_id=? " +
+
+        "AND status='Active' " +
 
         "AND next_renewal_date " +
 
@@ -540,6 +737,8 @@ public class SubscriptionDAO {
 
     "WHERE us.user_id=? " +
 
+    "AND us.status='Active' " +
+
     "GROUP BY us.subscription_id " +
 
     "ORDER BY usage_count DESC, " +
@@ -615,20 +814,26 @@ public class SubscriptionDAO {
        ========================= */
 
     public boolean deleteSubscription(
-        int subscriptionId){
+        int subscriptionId,
+        long userId,
+        boolean expiredSubscription){
 
-    try(
+    Connection conn = null;
 
-        Connection conn =
-        DBConnection.getConnection()
+    try{
 
-    ){
+        conn =
+        DBConnection.getConnection();
+
+        conn.setAutoCommit(false);
 
         String analyticsSql =
 
         "DELETE FROM analytics " +
 
-        "WHERE subscription_id=?";
+        "WHERE subscription_id=? " +
+
+        "AND user_id=?";
 
         PreparedStatement analyticsPs =
         conn.prepareStatement(
@@ -640,13 +845,64 @@ public class SubscriptionDAO {
         subscriptionId
         );
 
+        analyticsPs.setLong(
+        2,
+        userId
+        );
+
         analyticsPs.executeUpdate();
+
+        String notificationSql =
+
+        "DELETE FROM renewal_notifications " +
+
+        "WHERE subscription_id=?";
+
+        PreparedStatement notificationPs =
+        conn.prepareStatement(
+        notificationSql
+        );
+
+        notificationPs.setInt(
+        1,
+        subscriptionId
+        );
+
+        notificationPs.executeUpdate();
+
+        if(expiredSubscription){
+
+            String expiredSql =
+            "DELETE FROM expired_user_subscription " +
+            "WHERE subscription_id=? " +
+            "AND user_id=?";
+
+            try(PreparedStatement expiredPs =
+                    conn.prepareStatement(expiredSql)){
+
+                expiredPs.setInt(
+                1,
+                subscriptionId);
+
+                expiredPs.setLong(
+                2,
+                userId);
+
+                expiredPs.executeUpdate();
+            }
+        }
 
         String subscriptionSql =
 
         "DELETE FROM user_subscriptions " +
 
-        "WHERE subscription_id=?";
+        "WHERE subscription_id=? " +
+
+        "AND user_id=? " +
+
+        "AND status" +
+
+        (expiredSubscription ? "='Expired'" : "<>'Expired'");
 
         PreparedStatement subscriptionPs =
         conn.prepareStatement(
@@ -658,11 +914,44 @@ public class SubscriptionDAO {
         subscriptionId
         );
 
-        return subscriptionPs.executeUpdate() > 0;
+        subscriptionPs.setLong(
+        2,
+        userId
+        );
+
+        boolean deleted =
+        subscriptionPs.executeUpdate() > 0;
+
+        if(deleted){
+            conn.commit();
+        }else{
+            conn.rollback();
+        }
+
+        return deleted;
 
     }catch(Exception e){
 
+        if(conn != null){
+            try{
+                conn.rollback();
+            }catch(Exception rollbackError){
+                rollbackError.printStackTrace();
+            }
+        }
+
         e.printStackTrace();
+
+    }finally{
+
+        if(conn != null){
+            try{
+                conn.setAutoCommit(true);
+                conn.close();
+            }catch(Exception closeError){
+                closeError.printStackTrace();
+            }
+        }
     }
 
     return false;
@@ -677,33 +966,20 @@ public class SubscriptionDAO {
         long userId,
         boolean renewExpired){
 
-    String sql;
-
     if(renewExpired){
 
-        sql =
-        "UPDATE user_subscriptions " +
-        "SET plan_name=?, " +
-        "billing_cycle=?, " +
-        "next_renewal_date=?, " +
-        "last_used_date=?, " +
-        "status=CASE " +
-        "WHEN ?<CURDATE() " +
-        "THEN 'Expired' ELSE 'Active' END, " +
-        "updated_at=CURRENT_TIMESTAMP " +
-        "WHERE subscription_id=? " +
-        "AND user_id=? " +
-        "AND next_renewal_date<CURDATE()";
-
-    }else{
-
-        sql =
-        "UPDATE user_subscriptions " +
-        "SET last_used_date=?, " +
-        "updated_at=CURRENT_TIMESTAMP " +
-        "WHERE subscription_id=? " +
-        "AND user_id=?";
+        return renewExpiredSubscription(
+                sub,
+                userId);
     }
+
+    String sql =
+    "UPDATE user_subscriptions " +
+    "SET last_used_date=?, " +
+    "updated_at=CURRENT_TIMESTAMP " +
+    "WHERE subscription_id=? " +
+    "AND user_id=? " +
+    "AND status='Active'";
 
     try(
 
@@ -715,50 +991,17 @@ public class SubscriptionDAO {
 
     ){
 
-        if(renewExpired){
+        ps.setDate(
+        1,
+        sub.getLastUsedDate());
 
-            ps.setString(
-            1,
-            sub.getPlanName());
+        ps.setInt(
+        2,
+        sub.getSubscriptionId());
 
-            ps.setString(
-            2,
-            sub.getBillingCycle());
-
-            ps.setDate(
-            3,
-            sub.getRenewalDate());
-
-            ps.setDate(
-            4,
-            sub.getLastUsedDate());
-
-            ps.setDate(
-            5,
-            sub.getRenewalDate());
-
-            ps.setInt(
-            6,
-            sub.getSubscriptionId());
-
-            ps.setLong(
-            7,
-            userId);
-
-        }else{
-
-            ps.setDate(
-            1,
-            sub.getLastUsedDate());
-
-            ps.setInt(
-            2,
-            sub.getSubscriptionId());
-
-            ps.setLong(
-            3,
-            userId);
-        }
+        ps.setLong(
+        3,
+        userId);
 
         boolean updated =
         ps.executeUpdate() > 0;
@@ -819,11 +1062,174 @@ public class SubscriptionDAO {
 
     return false;
 }
+
+private boolean renewExpiredSubscription(
+        Subscription sub,
+        long userId){
+
+    String restoreSql =
+    "UPDATE user_subscriptions " +
+    "SET plan_name=?, " +
+    "amount=?, " +
+    "billing_cycle=?, " +
+    "next_renewal_date=?, " +
+    "status='Active', " +
+    "last_used_date=COALESCE(?, last_used_date), " +
+    "updated_at=CURRENT_TIMESTAMP " +
+    "WHERE subscription_id=? " +
+    "AND user_id=? " +
+    "AND status='Expired' " +
+    "AND ?>=CURDATE()";
+
+    String deleteExpiredSql =
+    "DELETE FROM expired_user_subscription " +
+    "WHERE subscription_id=? " +
+    "AND user_id=?";
+
+    String deleteNotificationsSql =
+    "DELETE FROM renewal_notifications " +
+    "WHERE subscription_id=?";
+
+    String analyticsSql =
+    "INSERT INTO analytics " +
+    "(subscription_id, user_id, subscription_name, " +
+    "amount, updated_at, last_used_date) " +
+    "SELECT subscription_id, user_id, subscription_name, " +
+    "amount, updated_at, last_used_date " +
+    "FROM user_subscriptions " +
+    "WHERE subscription_id=? " +
+    "AND user_id=?";
+
+    Connection conn = null;
+
+    try{
+
+        conn = DBConnection.getConnection();
+        conn.setAutoCommit(false);
+
+        int restored;
+
+        try(PreparedStatement restorePs =
+                conn.prepareStatement(restoreSql)){
+
+            restorePs.setString(
+            1,
+            sub.getPlanName());
+
+            restorePs.setDouble(
+            2,
+            sub.getAmount());
+
+            restorePs.setString(
+            3,
+            sub.getBillingCycle());
+
+            restorePs.setDate(
+            4,
+            sub.getRenewalDate());
+
+            restorePs.setDate(
+            5,
+            sub.getLastUsedDate());
+
+            restorePs.setInt(
+            6,
+            sub.getSubscriptionId());
+
+            restorePs.setLong(
+            7,
+            userId);
+
+            restorePs.setDate(
+            8,
+            sub.getRenewalDate());
+
+            restored =
+            restorePs.executeUpdate();
+        }
+
+        if(restored == 0){
+
+            conn.rollback();
+            return false;
+        }
+
+        try(PreparedStatement deleteExpiredPs =
+                conn.prepareStatement(deleteExpiredSql)){
+
+            deleteExpiredPs.setInt(
+            1,
+            sub.getSubscriptionId());
+
+            deleteExpiredPs.setLong(
+            2,
+            userId);
+
+            deleteExpiredPs.executeUpdate();
+        }
+
+        try(PreparedStatement notificationPs =
+                conn.prepareStatement(deleteNotificationsSql)){
+
+            notificationPs.setInt(
+            1,
+            sub.getSubscriptionId());
+
+            notificationPs.executeUpdate();
+        }
+
+        try(PreparedStatement analyticsPs =
+                conn.prepareStatement(analyticsSql)){
+
+            analyticsPs.setInt(
+            1,
+            sub.getSubscriptionId());
+
+            analyticsPs.setLong(
+            2,
+            userId);
+
+            analyticsPs.executeUpdate();
+        }
+
+        conn.commit();
+        return true;
+
+    }catch(Exception e){
+
+        if(conn != null){
+            try{
+                conn.rollback();
+            }catch(Exception rollbackError){
+                rollbackError.printStackTrace();
+            }
+        }
+
+        e.printStackTrace();
+        return false;
+
+    }finally{
+
+        if(conn != null){
+            try{
+                conn.setAutoCommit(true);
+                conn.close();
+            }catch(Exception closeError){
+                closeError.printStackTrace();
+            }
+        }
+    }
+}
+
 public List<Subscription>
 getAllActiveSubscriptions(){
 
     List<Subscription> list =
     new ArrayList<>();
+
+    if (!archiveExpiredSubscriptions(null)) {
+        return list;
+    }
 
     String sql =
 

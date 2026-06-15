@@ -86,6 +86,10 @@ extends HttpServlet {
                 request.getParameter(
                 "billingCycle");
 
+                String amount =
+                request.getParameter(
+                "amount");
+
                 String renewalDate =
                 request.getParameter(
                 "renewalDate");
@@ -94,22 +98,48 @@ extends HttpServlet {
                         || planName.trim().isEmpty()
                         || billingCycle == null
                         || billingCycle.trim().isEmpty()
+                        || amount == null
+                        || amount.trim().isEmpty()
                         || renewalDate == null
                         || renewalDate.trim().isEmpty()){
 
                     throw new IllegalArgumentException(
-                    "Plan, billing cycle and renewal date are required.");
+                    "Plan, amount, billing cycle and renewal date are required.");
                 }
 
                 sub.setPlanName(
                 planName.trim());
 
+                double parsedAmount =
+                Double.parseDouble(
+                amount.trim());
+
+                if(parsedAmount < 0){
+
+                    throw new IllegalArgumentException(
+                    "Amount cannot be negative.");
+                }
+
+                sub.setAmount(
+                parsedAmount);
+
                 sub.setBillingCycle(
                 billingCycle.trim());
 
+                java.time.LocalDate parsedRenewalDate =
+                java.time.LocalDate.parse(
+                renewalDate);
+
+                if(parsedRenewalDate.isBefore(
+                        java.time.LocalDate.now())){
+
+                    throw new IllegalArgumentException(
+                    "Renewal date cannot be in the past.");
+                }
+
                 sub.setRenewalDate(
                 java.sql.Date.valueOf(
-                renewalDate));
+                parsedRenewalDate));
             }
 
             SubscriptionDAO dao =

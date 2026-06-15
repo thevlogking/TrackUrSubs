@@ -7,8 +7,11 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+
+import model.User;
 
 @WebServlet("/DeleteSubscriptionServlet")
 public class DeleteSubscriptionServlet extends HttpServlet {
@@ -23,11 +26,33 @@ public class DeleteSubscriptionServlet extends HttpServlet {
 
         try{
 
+            HttpSession session =
+            request.getSession(false);
+
+            User user = session == null
+                    ? null
+                    : (User) session.getAttribute("user");
+
+            if(user == null){
+
+                response.sendRedirect(
+                request.getContextPath()
+                + "/pages/signin.jsp");
+
+                return;
+            }
+
             int subscriptionId =
 
             Integer.parseInt(
             request.getParameter(
             "subscriptionId"
+            ));
+
+            boolean expiredSubscription =
+            Boolean.parseBoolean(
+            request.getParameter(
+            "expiredSubscription"
             ));
 
             SubscriptionDAO dao =
@@ -36,7 +61,9 @@ public class DeleteSubscriptionServlet extends HttpServlet {
             boolean deleted =
 
             dao.deleteSubscription(
-            subscriptionId
+            subscriptionId,
+            user.getUserId(),
+            expiredSubscription
             );
 
             if(deleted){

@@ -51,6 +51,7 @@ readonly>
 <input
 type="number"
 step="0.01"
+min="0"
 id="editAmount"
 name="amount"
 readonly>
@@ -401,6 +402,7 @@ document.getElementById(
 
 const expiredEdit = Boolean(expired);
 const planInput = document.getElementById("editPlan");
+const amountInput = document.getElementById("editAmount");
 const billingInput = document.getElementById("editBilling");
 const renewalInput = document.getElementById("editRenewal");
 const lastUsedInput = document.getElementById("editLastUsed");
@@ -415,8 +417,16 @@ document.getElementById("editSubmitButton").textContent =
 expiredEdit ? "Renew Subscription" : "Update";
 
 planInput.readOnly = !expiredEdit;
+planInput.required = expiredEdit;
+amountInput.readOnly = !expiredEdit;
+amountInput.required = expiredEdit;
 billingInput.disabled = !expiredEdit;
+billingInput.required = expiredEdit;
 renewalInput.readOnly = !expiredEdit;
+renewalInput.required = expiredEdit;
+renewalInput.min = expiredEdit
+        ? "<%= java.time.LocalDate.now() %>"
+        : "";
 lastUsedInput.required = !expiredEdit;
 
 }

@@ -1,6 +1,4 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
-<%@ page import="java.time.LocalDate" %>
-<%@ page import="java.util.ArrayList" %>
 <%@ page import="java.util.List" %>
 <%@ page import="dao.SubscriptionDAO" %>
 <%@ page import="model.Subscription" %>
@@ -30,40 +28,12 @@
     }
 
     SubscriptionDAO dao = new SubscriptionDAO();
-    List<Subscription> subscriptions =
+    List<Subscription> activeSubscriptions =
             dao.getSubscriptionsByUserId(user.getUserId());
 
-    List<Subscription> activeSubscriptions = new ArrayList<>();
-    List<Subscription> expiredSubscriptions = new ArrayList<>();
-    LocalDate today = LocalDate.now();
+    List<Subscription> expiredSubscriptions =
+            dao.getExpiredSubscriptionsByUserId(user.getUserId());
 
-    for (Subscription subscription : subscriptions) {
-        if (subscription.getRenewalDate() != null
-                && subscription.getRenewalDate().toLocalDate().isBefore(today)) {
-            expiredSubscriptions.add(subscription);
-        } else {
-            activeSubscriptions.add(subscription);
-        }
-    }
-
-    double totalSpend = 0;
-
-    for (Subscription subscription : activeSubscriptions) {
-        double amount = subscription.getAmount();
-        String billingCycle = subscription.getBillingCycle() == null
-                ? ""
-                : subscription.getBillingCycle().trim().toLowerCase();
-
-        if ("yearly".equals(billingCycle)) {
-            totalSpend += amount / 12;
-        } else if ("weekly".equals(billingCycle)) {
-            totalSpend += amount * 4;
-        } else if ("quarterly".equals(billingCycle)) {
-            totalSpend += amount / 3;
-        } else {
-            totalSpend += amount;
-        }
-    }
 %>
 
 <!DOCTYPE html>
@@ -467,8 +437,8 @@
             </div>
 
             <div class="sub-stat">
-                <p>Monthly Spend</p>
-                <h3>&#8377;<%= Math.round(totalSpend) %></h3>
+                <p>Expired Subscriptions</p>
+                <h3><%= expiredSubscriptions.size() %></h3>
             </div>
         </div>
 
@@ -580,6 +550,10 @@
                                                 type="hidden"
                                                 name="subscriptionId"
                                                 value="<%= sub.getSubscriptionId() %>" />
+                                            <input
+                                                type="hidden"
+                                                name="expiredSubscription"
+                                                value="<%= expiredGroup %>" />
                                         </form>
                                     </div>
 
@@ -654,6 +628,7 @@
 
             document.querySelectorAll(".subscription-section").forEach(section => {
                 const cards = section.querySelectorAll(".sub-card");
+                const sectionCount = section.querySelector(".section-count");
                 const filterEmpty = section.querySelector(".filter-empty");
                 let visibleCount = 0;
 
@@ -673,6 +648,10 @@
                     }
                 });
 
+                if (sectionCount) {
+                    sectionCount.textContent = visibleCount;
+                }
+
                 if (filterEmpty) {
                     filterEmpty.style.display =
                         cards.length > 0 && visibleCount === 0 ? "flex" : "none";
@@ -682,6 +661,7 @@
 
         searchInput.addEventListener("input", filterSubscriptions);
         billingFilter.addEventListener("change", filterSubscriptions);
+        filterSubscriptions();
     </script>
 </body>
 </html>
