@@ -49,9 +49,11 @@ work/
 *.sqlite
 *.sqlite3
 
+
 # MySQL data directories
 data/
 mysql/
+database/
 
 # SQL dumps (optional)
 *.sql
