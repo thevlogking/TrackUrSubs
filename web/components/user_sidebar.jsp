@@ -74,7 +74,7 @@ User user =
 <div class="bottom-side">
 
     <div class="account"
-    onclick="openManageAccount()">
+    data-open-manage-account>
 
         <div>
 

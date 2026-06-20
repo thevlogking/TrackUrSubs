@@ -9,7 +9,7 @@
         <button
             type="button"
             class="close-modal"
-            onclick="closeModal()">
+            data-close-subscription-modal>
 
             <i class="fa-solid fa-xmark"></i>
 
@@ -178,22 +178,4 @@
 
 </div>
 
-<script>
-
-function closeModal(){
-
-    document
-        .getElementById(
-            "subscriptionModal")
-        .style.display = "none";
-}
-
-function openModal(){
-
-    document
-        .getElementById(
-            "subscriptionModal")
-        .style.display = "flex";
-}
-
-</script>
+<script src="../js/add_subscription.js"></script>
